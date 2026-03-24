@@ -129,6 +129,11 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// POST /api/logout - User logout (JWT is stateless, just return success)
+app.post('/api/logout', (req, res) => {
+    res.json({ message: 'Logout successful' });
+});
+
 // USER ROUTES
 
 // GET /api/users/profile - Get current user profile
