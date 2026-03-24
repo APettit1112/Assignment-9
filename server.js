@@ -1,5 +1,4 @@
 const express = require('express');
-const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { db, User, Project, Task } = require('./database/setup');
 require('dotenv').config();
@@ -12,30 +11,26 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 
-// Session middleware (TODO: Replace with JWT)
-app.use(session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-        secure: false,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-}));
-
-// TODO: Create JWT middleware to replace session auth
+// JWT middleware to replace session auth
 function requireAuth(req, res, next) {
-    if (req.session && req.session.userId) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authentication required. Please provide a valid token.' });
+    }
+    
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = {
-            id: req.session.userId,
-            name: req.session.userName,
-            email: req.session.userEmail
+            id: decoded.id,
+            name: decoded.name,
+            email: decoded.email,
+            role: decoded.role
         };
         next();
-    } else {
-        res.status(401).json({ 
-            error: 'Authentication required. Please log in.' 
-        });
+    } catch (error) {
+        res.status(401).json({ error: 'Invalid or expired token.' });
     }
 }
 
@@ -90,7 +85,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// POST /api/login - User login (TODO: Replace with JWT)
+// POST /api/login - User login with JWT
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -105,17 +100,26 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
         
-        // Create session (TODO: Replace with JWT)
-        req.session.userId = user.id;
-        req.session.userName = user.name;
-        req.session.userEmail = user.email;
+        // Generate JWT token
+        const token = jwt.sign(
+            {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role || 'user' // Default to 'user' if no role field
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN }
+        );
         
         res.json({
             message: 'Login successful',
+            token,
             user: {
                 id: user.id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                role: user.role || 'user'
             }
         });
         
@@ -123,16 +127,6 @@ app.post('/api/login', async (req, res) => {
         console.error('Error logging in user:', error);
         res.status(500).json({ error: 'Failed to login' });
     }
-});
-
-// POST /api/logout - User logout
-app.post('/api/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to logout' });
-        }
-        res.json({ message: 'Logout successful' });
-    });
 });
 
 // USER ROUTES
