@@ -34,6 +34,36 @@ function requireAuth(req, res, next) {
     }
 }
 
+// Middleware for manager and admin access
+function requireManager(req, res, next) {
+    // First check if user is authenticated (this assumes requireAuth was called before)
+    if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required.' });
+    }
+    
+    // Check if user has manager or admin role
+    if (req.user.role === 'manager' || req.user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).json({ error: 'Insufficient permissions. Manager or admin access required.' });
+    }
+}
+
+// Middleware for admin-only access
+function requireAdmin(req, res, next) {
+    // First check if user is authenticated (this assumes requireAuth was called before)
+    if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required.' });
+    }
+    
+    // Check if user has admin role
+    if (req.user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).json({ error: 'Insufficient permissions. Admin access required.' });
+    }
+}
+
 // Test database connection
 async function testConnection() {
     try {
