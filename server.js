@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const { db, User, Project, Task } = require('./database/setup');
 require('dotenv').config();
 
+const jwt = require('jsonwebtoken');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
